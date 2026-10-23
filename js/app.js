@@ -1,6 +1,7 @@
 /**
  * Chandigarh University - Official Lost & Found Portal
  * Application Engine & Interactive Controller
+ * Uses ASCII-safe Unicode escapes to guarantee zero character encoding corruption
  */
 
 (function () {
@@ -45,7 +46,7 @@
 
     toastMsg.textContent = message;
     if (toastIcon) {
-      toastIcon.textContent = type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
+      toastIcon.textContent = type === 'success' ? '\u2705' : type === 'warning' ? '\u26A0\uFE0F' : '\u2139\uFE0F';
     }
 
     toast.classList.add('show');
@@ -88,7 +89,7 @@
         document.documentElement.setAttribute('data-theme', next);
         localStorage.setItem('cu_lf_theme', next);
         updateThemeIcon(next);
-        showToast(`Theme switched to ${next} mode`);
+        showToast('Theme switched to ' + next + ' mode');
       });
     }
   }
@@ -96,7 +97,7 @@
   function updateThemeIcon(theme) {
     const icon = $('themeIcon');
     if (icon) {
-      icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+      icon.innerHTML = theme === 'dark' ? '&#9728;&#65039;' : '&#127769;';
     }
   }
 
@@ -173,7 +174,7 @@
 
     let html = `
       <button class="cat-pill active" data-cat="all">
-        <span>🌟</span> All Categories (${AppState.items.length})
+        <span>&#127775;</span> All Categories (${AppState.items.length})
       </button>
     `;
 
@@ -204,7 +205,7 @@
     const reportLoc = $('reportCampusLocation');
 
     if (filterLoc) {
-      filterLoc.innerHTML = `<option value="all">📍 All Campus Blocks & Locations</option>` +
+      filterLoc.innerHTML = `<option value="all">&#128205; All Campus Blocks &amp; Locations</option>` +
         CAMPUS_LOCATIONS.map((loc) => `<option value="${escapeHtml(loc)}">${escapeHtml(loc)}</option>`).join('');
     }
 
@@ -345,11 +346,11 @@
     if (filtered.length === 0) {
       listContainer.innerHTML = `
         <div class="empty-state">
-          <div class="empty-state-icon">🔍</div>
+          <div class="empty-state-icon">&#128269;</div>
           <h3>No Campus Items Match Your Search</h3>
           <p>Try broadening your query, selecting "All Categories", or report this item if you lost or found it today.</p>
           <button class="search-btn" style="margin: 0 auto;" data-goto-tab="report">
-            📢 Report Lost or Found Item
+            &#128227; Report Lost or Found Item
           </button>
         </div>
       `;
@@ -357,7 +358,7 @@
     }
 
     listContainer.innerHTML = filtered.map((item) => {
-      const catObj = ITEM_CATEGORIES.find((c) => c.id === item.category) || { name: item.category, icon: '📦' };
+      const catObj = ITEM_CATEGORIES.find((c) => c.id === item.category) || { name: item.category, icon: '\uD83D\uDCE6' };
       const statusObj = STATUS_PIPELINE[item.status] || STATUS_PIPELINE[0];
       const isFound = item.type === 'found';
       const hasClaim = !!item.claim;
@@ -372,7 +373,7 @@
             `}
             <div class="card-floating-badges">
               <span class="type-badge ${item.type}">
-                ${isFound ? '🟢 Found Item' : '🟡 Lost Report'}
+                ${isFound ? '&#128994; Found Item' : '&#128993; Lost Report'}
               </span>
               <span class="ref-code-chip">${item.id}</span>
             </div>
@@ -396,7 +397,7 @@
 
             <div class="status-pill-container">
               <span class="status-badge-inline ${statusObj.badgeClass}">
-                ● ${statusObj.label}
+                &bull; ${statusObj.label}
               </span>
               <span style="font-size:0.75rem; color:var(--text-muted); float:right; margin-top:2px;">
                 ${item.date}
@@ -412,11 +413,11 @@
             <div class="card-actions-row">
               ${isFound && item.status === 0 ? `
                 <button class="btn-card primary action-claim-btn" data-claim-id="${item.id}">
-                  🙋 Claim This Item
+                  &#128587; Claim This Item
                 </button>
               ` : `
                 <button class="btn-card secondary action-track-btn" data-track-id="${item.id}">
-                  🔎 Track Status
+                  &#128270; Track Status
                 </button>
               `}
               <button class="btn-card secondary action-detail-btn" data-detail-id="${item.id}">
@@ -425,7 +426,7 @@
 
               ${AppState.staffMode ? `
                 <button class="btn-card staff-btn action-staff-advance" data-advance-id="${item.id}">
-                  ⚡ Step +1
+                  &#9889; Step +1
                 </button>
               ` : ''}
             </div>
@@ -478,9 +479,9 @@
       renderCampusMetrics();
       renderItems();
       renderStaffPendingList();
-      showToast(`Updated ${item.id} status to: ${STATUS_PIPELINE[item.status].label}`, 'success');
+      showToast('Updated ' + item.id + ' status to: ' + STATUS_PIPELINE[item.status].label, 'success');
     } else {
-      showToast(`${item.id} is already in completed state.`, 'warning');
+      showToast(item.id + ' is already in completed state.', 'warning');
     }
   }
 
@@ -490,7 +491,7 @@
     if (!item) return;
 
     const modal = $('itemDetailDialog');
-    const catObj = ITEM_CATEGORIES.find((c) => c.id === item.category) || { name: item.category, icon: '📦' };
+    const catObj = ITEM_CATEGORIES.find((c) => c.id === item.category) || { name: item.category, icon: '\uD83D\uDCE6' };
     const statusObj = STATUS_PIPELINE[item.status] || STATUS_PIPELINE[0];
 
     $('detailModalTitle').textContent = item.title;
@@ -498,7 +499,7 @@
       <div style="margin-bottom:1.25rem;">
         ${item.imageUrl ? `<img src="${item.imageUrl}" style="width:100%; max-height:240px; object-fit:cover; border-radius:var(--radius-md); margin-bottom:1rem;" onerror="this.style.display='none'">` : ''}
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
-          <span class="type-badge ${item.type}">${item.type === 'found' ? '🟢 Found Item' : '🟡 Lost Item'}</span>
+          <span class="type-badge ${item.type}">${item.type === 'found' ? '&#128994; Found Item' : '&#128993; Lost Item'}</span>
           <span class="status-badge-inline ${statusObj.badgeClass}">${statusObj.label}</span>
         </div>
         <p style="font-size:0.95rem; color:var(--text-secondary); margin-bottom:1rem;">${escapeHtml(item.description)}</p>
@@ -532,16 +533,16 @@
 
         ${item.privateIdentifier ? `
           <div style="background:var(--color-warning-bg); border:1px solid var(--color-warning-border); padding:0.8rem; border-radius:var(--radius-md); margin-top:1rem; font-size:0.84rem;">
-            <strong>🔒 Verification Policy:</strong> Anyone claiming this item must verify private specifics (e.g. ${escapeHtml(item.privateIdentifier)}).
+            <strong>&#128274; Verification Policy:</strong> Anyone claiming this item must verify private specifics (e.g. ${escapeHtml(item.privateIdentifier)}).
           </div>
         ` : ''}
       </div>
 
       <div style="display:flex; justify-content:flex-end; gap:0.75rem; margin-top:1.5rem;">
         ${item.type === 'found' && item.status === 0 ? `
-          <button class="btn-card primary" id="btnModalClaimAction" style="padding:0.75rem 1.25rem;">🙋 Claim This Item</button>
+          <button class="btn-card primary" id="btnModalClaimAction" style="padding:0.75rem 1.25rem;">&#128587; Claim This Item</button>
         ` : ''}
-        <button class="btn-card secondary" id="btnModalTrackAction" style="padding:0.75rem 1.25rem;">🔎 Track Status</button>
+        <button class="btn-card secondary" id="btnModalTrackAction" style="padding:0.75rem 1.25rem;">&#128270; Track Status</button>
         <button class="btn-card secondary" id="btnModalCloseAction" style="padding:0.75rem 1.25rem;">Close</button>
       </div>
     `;
@@ -839,7 +840,7 @@
     if (!item) {
       container.innerHTML = `
         <div class="empty-state" style="margin-top:1.5rem;">
-          <div class="empty-state-icon">⚠️</div>
+          <div class="empty-state-icon">&#9888;&#65039;</div>
           <h3>No Record Found for "${escapeHtml(query)}"</h3>
           <p>Please re-check the Reference ID (e.g. CU-LF-2026-1001) or Student UID. If you haven't reported it yet, you can submit a new report now.</p>
           <button class="search-btn" style="margin: 0 auto;" data-goto-tab="report">
@@ -850,7 +851,7 @@
       return;
     }
 
-    const catObj = ITEM_CATEGORIES.find((c) => c.id === item.category) || { name: item.category, icon: '📦' };
+    const catObj = ITEM_CATEGORIES.find((c) => c.id === item.category) || { name: item.category, icon: '\uD83D\uDCE6' };
 
     // Stepper HTML
     const stepsHtml = STATUS_PIPELINE.map((st, idx) => {
@@ -859,10 +860,10 @@
 
       if (idx < item.status) {
         stateClass = 'completed';
-        badgeLabel = '✓';
+        badgeLabel = '&#10003;';
       } else if (idx === item.status) {
         stateClass = 'active';
-        badgeLabel = '⏳';
+        badgeLabel = '&#9203;';
       }
 
       return `
@@ -877,13 +878,13 @@
     container.innerHTML = `
       <div class="tracking-result-header">
         <div>
-          <span class="type-badge ${item.type}">${item.type === 'found' ? '🟢 Found Item' : '🟡 Lost Item'}</span>
+          <span class="type-badge ${item.type}">${item.type === 'found' ? '&#128994; Found Item' : '&#128993; Lost Item'}</span>
           <h2 style="margin-top:0.4rem; font-size:1.6rem;">${escapeHtml(item.title)}</h2>
           <span style="font-family:monospace; color:var(--text-muted); font-size:0.9rem;">Reference Code: <strong>${item.id}</strong></span>
         </div>
         <div style="text-align:right;">
           <button class="btn-card primary" id="btnPrintSlipDynamic" style="padding:0.6rem 1rem;">
-            🖨️ Print Handover Pass
+            &#128424;&#65039; Print Handover Pass
           </button>
         </div>
       </div>
@@ -918,7 +919,7 @@
             <span class="lbl" style="color:var(--color-info);">Active Claim In Progress</span>
             <span class="val" style="margin-top:0.3rem;">
               <strong>Student:</strong> ${escapeHtml(item.claim.studentName)} (${escapeHtml(item.claim.studentUid)})<br>
-              <strong>Status:</strong> ${item.status >= 2 ? '✅ Verified & Ready for Gate 1 Handover' : '⏳ Security Verification Underway'}<br>
+              <strong>Status:</strong> ${item.status >= 2 ? '&#10004;&#65039; Verified &amp; Ready for Gate 1 Handover' : '&#9203; Security Verification Underway'}<br>
               ${item.claim.adminNotes ? `<strong>Officer Remarks:</strong> ${escapeHtml(item.claim.adminNotes)}` : ''}
             </span>
           </div>
@@ -926,7 +927,7 @@
       </div>
 
       <div style="margin-top:1.5rem; padding:1.25rem; background:var(--bg-subtle); border-radius:var(--radius-md); font-size:0.88rem; color:var(--text-secondary);">
-        <strong>📌 Handover Instructions for Students:</strong><br>
+        <strong>&#128204; Handover Instructions for Students:</strong><br>
         To collect this item in person, bring your physical Chandigarh University Student Smart Card along with this reference code (<strong>${item.id}</strong>) to the <strong>Central Security Command Post at Gate 1</strong> between 09:00 AM and 05:30 PM (Mon-Sat).
       </div>
     `;
@@ -948,8 +949,8 @@
     cert.innerHTML = `
       <div style="text-align:center; border-bottom:2px solid #000; padding-bottom:1rem; margin-bottom:1.5rem;">
         <h2 style="font-size:1.6rem; margin-bottom:0.2rem;">CHANDIGARH UNIVERSITY</h2>
-        <h4 style="font-size:1.1rem; text-transform:uppercase; color:#333;">Department of Student Welfare & Campus Security Command</h4>
-        <p style="font-size:0.9rem;">Official Lost & Found Custody & Handover Pass</p>
+        <h4 style="font-size:1.1rem; text-transform:uppercase; color:#333;">Department of Student Welfare &amp; Campus Security Command</h4>
+        <p style="font-size:0.9rem;">Official Lost &amp; Found Custody &amp; Handover Pass</p>
       </div>
 
       <div style="display:flex; justify-content:space-between; margin-bottom:1.5rem;">
@@ -969,7 +970,7 @@
           <td>${escapeHtml(item.title)}</td>
         </tr>
         <tr>
-          <td style="font-weight:bold; background:#f0f0f0;">Category & Type</td>
+          <td style="font-weight:bold; background:#f0f0f0;">Category &amp; Type</td>
           <td>${item.category} (${item.type.toUpperCase()})</td>
         </tr>
         <tr>
@@ -1008,7 +1009,7 @@
       staffBtn.addEventListener('click', () => {
         AppState.staffMode = !AppState.staffMode;
         staffBtn.classList.toggle('active', AppState.staffMode);
-        staffBtn.innerHTML = AppState.staffMode ? '🛡️ Staff Mode: ON' : '🛡️ Staff Portal';
+        staffBtn.innerHTML = AppState.staffMode ? '&#128737;&#65039; Staff Mode: ON' : '&#128737;&#65039; Staff Portal';
 
         showToast(
           AppState.staffMode
@@ -1047,7 +1048,7 @@
     if (claimedItems.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
-          <div class="empty-state-icon">✅</div>
+          <div class="empty-state-icon">&#10004;&#65039;</div>
           <h3>No Pending Ownership Claims</h3>
           <p>All student claims have been resolved or no claims have been submitted yet.</p>
         </div>
@@ -1063,7 +1064,7 @@
             <div>
               <span class="ref-code-chip">${item.id}</span>
               <h4 style="font-size:1.15rem; margin-top:0.3rem;">${escapeHtml(item.title)}</h4>
-              <p style="font-size:0.85rem; color:var(--text-muted);">${escapeHtml(item.location)} · Reported ${item.date}</p>
+              <p style="font-size:0.85rem; color:var(--text-muted);">${escapeHtml(item.location)} &bull; Reported ${item.date}</p>
             </div>
             <span class="status-badge-inline ${STATUS_PIPELINE[item.status].badgeClass}">
               ${STATUS_PIPELINE[item.status].label}
@@ -1080,16 +1081,16 @@
           <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
             ${item.status === 1 ? `
               <button class="btn-card primary action-approve-claim" data-item-id="${item.id}" style="flex:auto;">
-                ✅ Verify Proof & Approve for Pickup
+                &#10004;&#65039; Verify Proof &amp; Approve for Pickup
               </button>
             ` : ''}
             ${item.status === 2 ? `
               <button class="btn-card primary action-complete-handover" data-item-id="${item.id}" style="flex:auto; background:var(--color-success);">
-                🤝 Confirm Handover & Close
+                &#129309; Confirm Handover &amp; Close
               </button>
             ` : ''}
             <button class="btn-card secondary action-print-gatepass" data-item-id="${item.id}">
-              🖨️ Handover Pass
+              &#128424;&#65039; Handover Pass
             </button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 /**
  * Chandigarh University - Official Lost & Found Portal
  * Canonical Seed Dataset & Campus Data Engine
+ * Uses ASCII-safe Unicode escapes to guarantee zero character encoding corruption
  */
 
 const CAMPUS_LOCATIONS = [
@@ -29,16 +30,16 @@ const CAMPUS_LOCATIONS = [
 ];
 
 const ITEM_CATEGORIES = [
-  { id: "id-cards", name: "ID Cards & Govt Documents", icon: "🪪", color: "#3B82F6" },
-  { id: "electronics", name: "Electronics & Gadgets", icon: "💻", color: "#8B5CF6" },
-  { id: "wallets", name: "Wallets, Purses & Cash", icon: "👛", color: "#EC4899" },
-  { id: "keys", name: "Keys & Smart Fobs", icon: "🔑", color: "#F59E0B" },
-  { id: "bags", name: "Bags & Backpacks", icon: "🎒", color: "#10B981" },
-  { id: "books", name: "Books, Notes & Stationery", icon: "📚", color: "#6366F1" },
-  { id: "bottles", name: "Bottles, Flasks & Tumblers", icon: "🍶", color: "#06B6D4" },
-  { id: "wearables", name: "Watches, Rings & Eyewear", icon: "⌚", color: "#14B8A6" },
-  { id: "apparel", name: "Clothing, Lab Coats & Blazers", icon: "🥼", color: "#F97316" },
-  { id: "other", name: "Other Personal Belongings", icon: "📦", color: "#64748B" }
+  { id: "id-cards", name: "ID Cards & Govt Documents", icon: "\uD83E\uDEAA", color: "#3B82F6" },
+  { id: "electronics", name: "Electronics & Gadgets", icon: "\uD83D\uDCBB", color: "#8B5CF6" },
+  { id: "wallets", name: "Wallets, Purses & Cash", icon: "\uD83D\uDC5B", color: "#EC4899" },
+  { id: "keys", name: "Keys & Smart Fobs", icon: "\uD83D\uDD11", color: "#F59E0B" },
+  { id: "bags", name: "Bags & Backpacks", icon: "\uD83C\uDF92", color: "#10B981" },
+  { id: "books", name: "Books, Notes & Stationery", icon: "\uD83D\uDCDA", color: "#6366F1" },
+  { id: "bottles", name: "Bottles, Flasks & Tumblers", icon: "\uD83C\uDF76", color: "#06B6D4" },
+  { id: "wearables", name: "Watches, Rings & Eyewear", icon: "\u231A", color: "#14B8A6" },
+  { id: "apparel", name: "Clothing, Lab Coats & Blazers", icon: "\uD83E\uDDE5", color: "#F97316" },
+  { id: "other", name: "Other Personal Belongings", icon: "\uD83D\uDCE6", color: "#64748B" }
 ];
 
 const STATUS_PIPELINE = [
@@ -535,6 +536,6 @@ const PortalDB = {
   generateNextId: function(items) {
     const year = new Date().getFullYear();
     const count = items.length + 1001;
-    return `CU-LF-${year}-${count}`;
+    return "CU-LF-" + year + "-" + count;
   }
 };
