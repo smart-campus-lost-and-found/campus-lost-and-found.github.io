@@ -4,8 +4,14 @@
  * Connected to Live Cloud Database on Render
  */
 
-const CampusAPI = (function () {
+window.CampusAPI = (function () {
   'use strict';
+
+  // LIVE CLOUD BACKEND URL (Verified & Active)
+  const BACKEND_URL = 'https://campus-lost-and-found-github-io-1.onrender.com';
+
+  let backendUrl = BACKEND_URL;
+  let isConnectedToCloud = false;
 
   // Clear any old corrupted or local file paths from memory
   try {
@@ -15,17 +21,27 @@ const CampusAPI = (function () {
     }
   } catch (e) {}
 
-  // YOUR LIVE CLOUD BACKEND URL (Verified & Active)
-  const BACKEND_URL = 'https://campus-lost-and-found-github-io-1.onrender.com';
-
-  let backendUrl = BACKEND_URL;
-  let isConnectedToCloud = false;
-
   // Helper to construct endpoint URLs safely
   function getEndpoint(path) {
     const base = backendUrl.replace(/\/+$/, '');
     const cleanPath = path.replace(/^\/+/, '');
     return `${base}/${cleanPath}`;
+  }
+
+  // Update visual connection indicator in the UI
+  function updateConnectionBadge(online) {
+    const badge = document.getElementById('backendStatusBadge');
+    if (badge) {
+      if (online) {
+        badge.innerHTML = '&#128994; Cloud DB Connected';
+        badge.className = 'backend-status-pill connected';
+        badge.title = 'Live Central Database: ' + backendUrl;
+      } else {
+        badge.innerHTML = '&#128993; Local Storage Mode';
+        badge.className = 'backend-status-pill offline';
+        badge.title = 'Running in offline/local browser mode.';
+      }
+    }
   }
 
   // Check backend health
@@ -49,22 +65,6 @@ const CampusAPI = (function () {
     isConnectedToCloud = false;
     updateConnectionBadge(false);
     return { online: false };
-  }
-
-  // Update visual connection indicator in the UI
-  function updateConnectionBadge(online) {
-    const badge = document.getElementById('backendStatusBadge');
-    if (badge) {
-      if (online) {
-        badge.innerHTML = '&#128994; Cloud DB Connected';
-        badge.className = 'backend-status-pill connected';
-        badge.title = 'Live Central Database: ' + backendUrl;
-      } else {
-        badge.innerHTML = '&#128993; Local Storage Mode';
-        badge.className = 'backend-status-pill offline';
-        badge.title = 'Running in offline/local browser mode.';
-      }
-    }
   }
 
   // 1. Fetch Items with filters
@@ -268,8 +268,7 @@ const CampusAPI = (function () {
     return PortalDB.resetToDefault();
   }
 
-  // Public Configuration Methods
-  return {
+  const apiObj = {
     checkHealth,
     getItems,
     getItemById,
@@ -285,4 +284,12 @@ const CampusAPI = (function () {
     },
     getBackendUrl: () => backendUrl
   };
+
+  // Run health check immediately when script loads!
+  checkHealth();
+
+  return apiObj;
 })();
+
+// Also expose as global variable
+var CampusAPI = window.CampusAPI;
