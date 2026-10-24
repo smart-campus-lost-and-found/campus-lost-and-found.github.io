@@ -8,7 +8,7 @@ const CampusAPI = (function () {
   'use strict';
 
   // Config: Load custom backend URL from localStorage if set, otherwise default to relative path
-  let backendUrl = localStorage.getItem('cu_backend_api_url') || '';
+  let backendUrl = 'https://campus-lost-and-found-github-io-1.onrender.com';
   let isConnectedToCloud = false;
 
   // Helper to construct endpoint URLs
