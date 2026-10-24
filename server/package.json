@@ -1,0 +1,17 @@
+{
+  "name": "cu-lost-and-found-backend",
+  "version": "2.0.0",
+  "description": "Chandigarh University Official Lost and Found Central REST API Server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "lost-and-found",
+    "chandigarh-university",
+    "campus-api"
+  ],
+  "author": "Chandigarh University DSW & Security Command",
+  "license": "MIT"
+}
