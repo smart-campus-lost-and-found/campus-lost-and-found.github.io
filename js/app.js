@@ -1,7 +1,7 @@
 /**
  * Chandigarh University - Official Lost & Found Portal
  * Application Engine & Interactive Controller
- * Uses ASCII-safe Unicode escapes to guarantee zero character encoding corruption
+ * Integrated with Central REST API & Hybrid Local/Cloud Persistence
  */
 
 (function () {
@@ -57,12 +57,9 @@
   }
 
   // Initialize Portal
-  function init() {
-    AppState.items = PortalDB.loadItems();
-
+  async function init() {
     initTheme();
     initNavigation();
-    initCategoryPills();
     initLocationDropdowns();
     initHeroSearch();
     initFilters();
@@ -70,9 +67,48 @@
     initClaimModal();
     initTracking();
     initStaffControls();
+    initBackendConfig();
 
+    // Check Cloud Backend connection
+    if (window.CampusAPI) {
+      await CampusAPI.checkHealth();
+      AppState.items = await CampusAPI.getItems();
+    } else {
+      AppState.items = PortalDB.loadItems();
+    }
+
+    initCategoryPills();
     renderCampusMetrics();
     renderItems();
+  }
+
+  // Configure Backend Server Connection URL Modal / Prompt
+  function initBackendConfig() {
+    const badge = $('backendStatusBadge');
+    if (!badge) return;
+
+    badge.addEventListener('click', async () => {
+      const current = CampusAPI.getBackendUrl();
+      const input = prompt(
+        "Connect to Live Backend Database Server:\n\n" +
+        "Enter your Backend API URL (e.g. https://my-backend.onrender.com or http://localhost:5000):\n" +
+        "Leave blank to use default relative API path.",
+        current
+      );
+
+      if (input !== null) {
+        showToast("Testing connection to Backend API...", "info");
+        const status = await CampusAPI.setBackendUrl(input);
+        if (status.online) {
+          showToast("Connected to Central Campus Database!", "success");
+        } else {
+          showToast("Could not reach backend URL. Running in local storage mode.", "warning");
+        }
+        AppState.items = await CampusAPI.getItems();
+        renderCampusMetrics();
+        renderItems();
+      }
+    });
   }
 
   // Dark/Light Theme Handler
@@ -159,7 +195,7 @@
     const totalCount = AppState.items.length;
     const returnedCount = AppState.items.filter((i) => i.status === 3).length;
     const inReviewCount = AppState.items.filter((i) => i.status === 1 || i.status === 2).length;
-    const recoveryRate = totalCount > 0 ? Math.round(((returnedCount + inReviewCount) / totalCount) * 100) : 94;
+    const recoveryRate = totalCount > 0 ? Math.round(((returnedCount + inReviewCount) / totalCount) * 100) : 95;
 
     if ($('statTotalItems')) $('statTotalItems').textContent = totalCount;
     if ($('statReturned')) $('statReturned').textContent = returnedCount;
@@ -295,49 +331,37 @@
   }
 
   // Main Items List Renderer
-  function renderItems() {
+  async function renderItems() {
     const listContainer = $('itemsListGrid');
     const countTag = $('resultsCountTag');
     if (!listContainer) return;
 
-    const filtered = AppState.items.filter((item) => {
-      // Search query
-      if (AppState.searchQuery) {
-        const query = AppState.searchQuery;
-        const searchable = [
-          item.title,
-          item.description,
-          item.location,
-          item.id,
-          item.campusBlock,
-          item.category
-        ].join(' ').toLowerCase();
+    // Fetch items with filters applied
+    const params = {
+      search: AppState.searchQuery,
+      category: AppState.selectedCategory,
+      type: AppState.typeFilter,
+      location: AppState.blockFilter,
+      status: AppState.statusFilter
+    };
 
-        if (!searchable.includes(query)) return false;
-      }
-
-      // Category filter
-      if (AppState.selectedCategory !== 'all' && item.category !== AppState.selectedCategory) {
-        return false;
-      }
-
-      // Type filter (lost / found)
-      if (AppState.typeFilter !== 'all' && item.type !== AppState.typeFilter) {
-        return false;
-      }
-
-      // Campus Block filter
-      if (AppState.blockFilter !== 'all' && item.location !== AppState.blockFilter) {
-        return false;
-      }
-
-      // Status filter
-      if (AppState.statusFilter !== 'all' && String(item.status) !== String(AppState.statusFilter)) {
-        return false;
-      }
-
-      return true;
-    });
+    let filtered = [];
+    if (window.CampusAPI) {
+      filtered = await CampusAPI.getItems(params);
+    } else {
+      filtered = AppState.items.filter((item) => {
+        if (params.search) {
+          const q = params.search.toLowerCase();
+          const searchable = [item.title, item.description, item.location, item.id].join(' ').toLowerCase();
+          if (!searchable.includes(q)) return false;
+        }
+        if (params.category !== 'all' && item.category !== params.category) return false;
+        if (params.type !== 'all' && item.type !== params.type) return false;
+        if (params.location !== 'all' && item.location !== params.location) return false;
+        if (params.status !== 'all' && String(item.status) !== String(params.status)) return false;
+        return true;
+      });
+    }
 
     if (countTag) {
       countTag.textContent = `Showing ${filtered.length} of ${AppState.items.length} items`;
@@ -469,25 +493,42 @@
   }
 
   // Advance Status (Staff Feature)
-  function advanceItemStatus(id) {
+  async function advanceItemStatus(id) {
     const item = AppState.items.find((x) => x.id === id);
     if (!item) return;
 
     if (item.status < 3) {
-      item.status += 1;
-      PortalDB.saveItems(AppState.items);
+      const nextStep = item.status + 1;
+      let updated;
+      if (window.CampusAPI) {
+        updated = await CampusAPI.updateStatus(id, nextStep);
+      } else {
+        item.status = nextStep;
+        PortalDB.saveItems(AppState.items);
+        updated = item;
+      }
+
+      // Sync state
+      const idx = AppState.items.findIndex(x => x.id === id);
+      if (idx !== -1) AppState.items[idx] = updated;
+
       renderCampusMetrics();
       renderItems();
       renderStaffPendingList();
-      showToast('Updated ' + item.id + ' status to: ' + STATUS_PIPELINE[item.status].label, 'success');
+      showToast('Updated ' + item.id + ' status to: ' + STATUS_PIPELINE[updated.status].label, 'success');
     } else {
       showToast(item.id + ' is already in completed state.', 'warning');
     }
   }
 
   // Item Detail Modal
-  function openDetailModal(id) {
-    const item = AppState.items.find((x) => x.id === id);
+  async function openDetailModal(id) {
+    let item;
+    if (window.CampusAPI) {
+      item = await CampusAPI.getItemById(id);
+    } else {
+      item = AppState.items.find((x) => x.id === id);
+    }
     if (!item) return;
 
     const modal = $('itemDetailDialog');
@@ -580,7 +621,7 @@
     }
 
     if (submitBtn) {
-      submitBtn.addEventListener('click', () => {
+      submitBtn.addEventListener('click', async () => {
         const studentName = $('claimStudentName').value.trim();
         const studentUid = $('claimStudentUid').value.trim().toUpperCase();
         const studentEmail = $('claimStudentEmail').value.trim().toLowerCase();
@@ -593,7 +634,6 @@
           return;
         }
 
-        // Basic UID format check (CU UIDs are typically alphanumeric, e.g. 24BCS10884)
         if (studentUid.length < 5) {
           showToast('Please enter a valid Chandigarh University UID', 'warning');
           return;
@@ -601,37 +641,47 @@
 
         if (!AppState.activeClaimItem) return;
 
-        AppState.activeClaimItem.claim = {
+        const claimPayload = {
           studentName,
           studentUid,
           studentEmail: studentEmail || `${studentUid.toLowerCase()}@cumail.in`,
           studentPhone,
-          submittedOn: new Date().toLocaleDateString('en-GB') + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           claimProofText: claimProof,
           secretDetail: secretDetail || 'N/A'
         };
 
-        // Advance item status to 1: Claim Under Review
-        if (AppState.activeClaimItem.status === 0) {
-          AppState.activeClaimItem.status = 1;
+        try {
+          showToast('Transmitting claim to Central Security...', 'info');
+          let updatedItem;
+          if (window.CampusAPI) {
+            updatedItem = await CampusAPI.submitClaim(AppState.activeClaimItem.id, claimPayload);
+          } else {
+            AppState.activeClaimItem.claim = claimPayload;
+            if (AppState.activeClaimItem.status === 0) AppState.activeClaimItem.status = 1;
+            PortalDB.saveItems(AppState.items);
+            updatedItem = AppState.activeClaimItem;
+          }
+
+          dialog.close();
+
+          // Clear form
+          ['claimStudentName', 'claimStudentUid', 'claimStudentEmail', 'claimStudentPhone', 'claimProofText', 'claimSecretDetail'].forEach((k) => {
+            if ($(k)) $(k).value = '';
+          });
+
+          // Refresh state
+          if (window.CampusAPI) AppState.items = await CampusAPI.getItems();
+          renderCampusMetrics();
+          renderItems();
+
+          showToast(`Claim registered in Central Database! Security will verify UID ${studentUid}`, 'success');
+
+          // Switch to tracking view
+          switchTab('track');
+          trackItemCode(updatedItem.id);
+        } catch (err) {
+          showToast('Failed to submit claim. Please try again.', 'warning');
         }
-
-        PortalDB.saveItems(AppState.items);
-        dialog.close();
-
-        // Clear form
-        ['claimStudentName', 'claimStudentUid', 'claimStudentEmail', 'claimStudentPhone', 'claimProofText', 'claimSecretDetail'].forEach((k) => {
-          if ($(k)) $(k).value = '';
-        });
-
-        renderCampusMetrics();
-        renderItems();
-
-        showToast(`Claim submitted! Security Desk will verify your UID ${studentUid}`, 'success');
-
-        // Automatically switch to track view
-        switchTab('track');
-        trackItemCode(AppState.activeClaimItem.id);
       });
     }
   }
@@ -706,7 +756,7 @@
     // Submit Report Handler
     const submitBtn = $('reportSubmitBtn');
     if (submitBtn) {
-      submitBtn.addEventListener('click', () => {
+      submitBtn.addEventListener('click', async () => {
         const title = $('reportItemName').value.trim();
         const category = $('reportCategory').value;
         const locationSelect = $('reportCampusLocation').value;
@@ -743,11 +793,9 @@
           return;
         }
 
-        const newId = PortalDB.generateNextId(AppState.items);
         const fullLocation = locationDetail ? `${locationSelect} (${locationDetail})` : locationSelect;
 
-        const newItem = {
-          id: newId,
+        const payload = {
           type: reportType,
           title,
           category: category || 'other',
@@ -757,16 +805,23 @@
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           description,
           privateIdentifier: privateIdentifier || 'Verified with Official Student ID',
-          custodianDesk: reportType === 'found' ? `${locationSelect} Security Booth` : 'DSW Central Lost & Found Desk',
           reportingPerson: reporterName,
           contact: reporterContact,
-          status: 0,
-          imageUrl: AppState.previewPhotoData || '',
-          claim: null
+          imageUrl: AppState.previewPhotoData || ''
         };
 
-        AppState.items.unshift(newItem);
-        PortalDB.saveItems(AppState.items);
+        showToast('Saving report to central campus register...', 'info');
+
+        let createdItem;
+        if (window.CampusAPI) {
+          createdItem = await CampusAPI.createItem(payload);
+          AppState.items = await CampusAPI.getItems();
+        } else {
+          const newId = PortalDB.generateNextId(AppState.items);
+          createdItem = { ...payload, id: newId, status: 0, claim: null };
+          AppState.items.unshift(createdItem);
+          PortalDB.saveItems(AppState.items);
+        }
 
         // Reset inputs
         ['reportItemName', 'reportLocationDetail', 'reportDescription', 'reportPrivateIdentifier', 'reportContactName', 'reportContactPhone'].forEach((id) => {
@@ -783,11 +838,11 @@
         renderCampusMetrics();
         renderItems();
 
-        showToast(`Report logged in CU database! Reference ID: ${newId}`, 'success');
+        showToast(`Report logged in Central Register! Reference ID: ${createdItem.id}`, 'success');
 
         // Navigate to track view
         switchTab('track');
-        trackItemCode(newId);
+        trackItemCode(createdItem.id);
       });
     }
   }
@@ -822,7 +877,7 @@
     }
   }
 
-  function trackItemCode(query) {
+  async function trackItemCode(query) {
     const container = $('trackingResultContainer');
     if (!container) return;
 
@@ -830,12 +885,16 @@
       $('trackingCodeInput').value = query;
     }
 
-    const cleanQuery = query.toLowerCase().trim();
-    // Search by Item ID or Student UID
-    const item = AppState.items.find((x) =>
-      x.id.toLowerCase() === cleanQuery ||
-      (x.claim && x.claim.studentUid.toLowerCase() === cleanQuery)
-    );
+    let item;
+    if (window.CampusAPI) {
+      item = await CampusAPI.getItemById(query);
+    } else {
+      const cleanQuery = query.toLowerCase().trim();
+      item = AppState.items.find((x) =>
+        x.id.toLowerCase() === cleanQuery ||
+        (x.claim && x.claim.studentUid && x.claim.studentUid.toLowerCase() === cleanQuery)
+      );
+    }
 
     if (!item) {
       container.innerHTML = `
@@ -1026,14 +1085,19 @@
     // Reset database to demo seeds
     const resetBtn = $('btnResetDatabase');
     if (resetBtn) {
-      resetBtn.addEventListener('click', () => {
+      resetBtn.addEventListener('click', async () => {
         if (confirm('Reset portal database to default official university sample dataset?')) {
-          AppState.items = PortalDB.resetToDefault();
+          if (window.CampusAPI) {
+            await CampusAPI.resetDatabase();
+            AppState.items = await CampusAPI.getItems();
+          } else {
+            AppState.items = PortalDB.resetToDefault();
+          }
           initCategoryPills();
           renderCampusMetrics();
           renderItems();
           renderStaffPendingList();
-          showToast('Portal database restored to default seed dataset', 'success');
+          showToast('Portal database restored to canonical seed dataset', 'success');
         }
       });
     }
@@ -1098,32 +1162,46 @@
     }).join('');
 
     container.querySelectorAll('.action-approve-claim').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         const id = e.currentTarget.getAttribute('data-item-id');
-        const item = AppState.items.find((x) => x.id === id);
-        if (item) {
-          item.status = 2; // Matched & Ready for Pickup
-          PortalDB.saveItems(AppState.items);
-          renderCampusMetrics();
-          renderStaffPendingList();
-          renderItems();
-          showToast(`Claim approved for ${item.id}. Student may collect from Gate 1.`, 'success');
+        let updated;
+        if (window.CampusAPI) {
+          updated = await CampusAPI.updateStatus(id, 2);
+          AppState.items = await CampusAPI.getItems();
+        } else {
+          const item = AppState.items.find((x) => x.id === id);
+          if (item) {
+            item.status = 2;
+            PortalDB.saveItems(AppState.items);
+            updated = item;
+          }
         }
+        renderCampusMetrics();
+        renderStaffPendingList();
+        renderItems();
+        showToast(`Claim approved for ${id}. Student may collect from Gate 1.`, 'success');
       });
     });
 
     container.querySelectorAll('.action-complete-handover').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         const id = e.currentTarget.getAttribute('data-item-id');
-        const item = AppState.items.find((x) => x.id === id);
-        if (item) {
-          item.status = 3; // Returned & Dispatched
-          PortalDB.saveItems(AppState.items);
-          renderCampusMetrics();
-          renderStaffPendingList();
-          renderItems();
-          showToast(`Handover confirmed! Item ${item.id} closed and logged.`, 'success');
+        let updated;
+        if (window.CampusAPI) {
+          updated = await CampusAPI.updateStatus(id, 3);
+          AppState.items = await CampusAPI.getItems();
+        } else {
+          const item = AppState.items.find((x) => x.id === id);
+          if (item) {
+            item.status = 3;
+            PortalDB.saveItems(AppState.items);
+            updated = item;
+          }
         }
+        renderCampusMetrics();
+        renderStaffPendingList();
+        renderItems();
+        showToast(`Handover confirmed! Item ${id} closed and logged.`, 'success');
       });
     });
 
