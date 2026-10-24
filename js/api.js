@@ -1,19 +1,28 @@
 /**
  * Chandigarh University - Official Lost & Found Portal
  * Central API Client & Hybrid Storage Sync
- * Seamlessly interfaces with Node.js Backend API or falls back to LocalStorage
+ * Connected to Live Cloud Database on Render
  */
 
 const CampusAPI = (function () {
   'use strict';
 
-  // Config: Load custom backend URL from localStorage if set, otherwise default to relative path
-  let backendUrl = 'https://campus-lost-and-found-github-io-1.onrender.com';
+  // Clear any old corrupted or local file paths from memory
+  try {
+    const oldUrl = localStorage.getItem('cu_backend_api_url');
+    if (oldUrl && (oldUrl.startsWith('file:') || oldUrl.includes(':\\') || oldUrl.includes('localhost'))) {
+      localStorage.removeItem('cu_backend_api_url');
+    }
+  } catch (e) {}
+
+  // YOUR LIVE CLOUD BACKEND URL (Verified & Active)
+  const BACKEND_URL = 'https://campus-lost-and-found-github-io-1.onrender.com';
+
+  let backendUrl = BACKEND_URL;
   let isConnectedToCloud = false;
 
-  // Helper to construct endpoint URLs
+  // Helper to construct endpoint URLs safely
   function getEndpoint(path) {
-    if (!backendUrl) return path;
     const base = backendUrl.replace(/\/+$/, '');
     const cleanPath = path.replace(/^\/+/, '');
     return `${base}/${cleanPath}`;
@@ -34,8 +43,9 @@ const CampusAPI = (function () {
         return { online: true, data };
       }
     } catch (e) {
-      // Backend not running / unreachable
+      console.warn('Backend server connecting...', e);
     }
+
     isConnectedToCloud = false;
     updateConnectionBadge(false);
     return { online: false };
@@ -48,11 +58,11 @@ const CampusAPI = (function () {
       if (online) {
         badge.innerHTML = '&#128994; Cloud DB Connected';
         badge.className = 'backend-status-pill connected';
-        badge.title = 'Connected to Live Central Database: ' + (backendUrl || 'Local Server');
+        badge.title = 'Live Central Database: ' + backendUrl;
       } else {
         badge.innerHTML = '&#128993; Local Storage Mode';
         badge.className = 'backend-status-pill offline';
-        badge.title = 'Running in offline/local browser mode. Click to configure live cloud API.';
+        badge.title = 'Running in offline/local browser mode.';
       }
     }
   }
@@ -72,7 +82,6 @@ const CampusAPI = (function () {
         const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
         if (res.ok) {
           const data = await res.json();
-          // Keep local fallback in sync
           if (Array.isArray(data.items)) {
             PortalDB.saveItems(data.items);
             return data.items;
@@ -82,7 +91,6 @@ const CampusAPI = (function () {
         console.warn('Backend query failed, falling back to local DB', err);
       }
     }
-    // Fallback: Local database filter
     return filterLocalItems(params);
   }
 
@@ -149,7 +157,6 @@ const CampusAPI = (function () {
         });
         if (res.ok) {
           const result = await res.json();
-          // Sync with local
           const local = PortalDB.loadItems();
           local.unshift(result.item);
           PortalDB.saveItems(local);
@@ -160,7 +167,6 @@ const CampusAPI = (function () {
       }
     }
 
-    // Local fallback
     const local = PortalDB.loadItems();
     const newId = PortalDB.generateNextId(local);
     const newItem = {
@@ -185,7 +191,6 @@ const CampusAPI = (function () {
         });
         if (res.ok) {
           const result = await res.json();
-          // Update local
           const local = PortalDB.loadItems();
           const idx = local.findIndex((x) => x.id === itemId);
           if (idx !== -1) {
@@ -199,7 +204,6 @@ const CampusAPI = (function () {
       }
     }
 
-    // Local fallback
     const local = PortalDB.loadItems();
     const item = local.find((x) => x.id === itemId);
     if (item) {
@@ -239,7 +243,6 @@ const CampusAPI = (function () {
       }
     }
 
-    // Local fallback
     const local = PortalDB.loadItems();
     const item = local.find((x) => x.id === itemId);
     if (item) {
@@ -276,7 +279,7 @@ const CampusAPI = (function () {
     resetDatabase,
     isOnline: () => isConnectedToCloud,
     setBackendUrl: function (url) {
-      backendUrl = (url || '').trim();
+      backendUrl = (url || BACKEND_URL).trim();
       localStorage.setItem('cu_backend_api_url', backendUrl);
       return checkHealth();
     },
